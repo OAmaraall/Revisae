@@ -27,7 +27,6 @@ import {
   ReviewStatus,
   ErrorStatus
 } from '../types';
-import { seedUserDataIfEmpty } from '../utils/seeder';
 
 interface DataContextType {
   user: User | null;
@@ -106,11 +105,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
             email: currentUser.email || "",
             lastLogin: new Date().toISOString()
           }, { merge: true });
-
-          // Seeds example subjects & contents if they don't have any
-          await seedUserDataIfEmpty(currentUser.uid);
         } catch (e) {
-          console.error("Failed seeding user:", e);
+          console.error("Failed saving user data:", e);
         } finally {
           setDbLoading(false);
         }
