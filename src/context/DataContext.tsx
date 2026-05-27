@@ -25,7 +25,8 @@ import {
   PriorityLevel,
   ReviewPerformance,
   ReviewStatus,
-  ErrorStatus
+  ErrorStatus,
+  WeeklyPlanner
 } from '../types';
 
 interface DataContextType {
@@ -37,6 +38,7 @@ interface DataContextType {
   reviews: Review[];
   questions: QuestionSession[];
   errors: ErrorEntry[];
+  weeklyPlanners: WeeklyPlanner[];
   dbLoading: boolean;
   
   // Auth actions
@@ -54,6 +56,10 @@ interface DataContextType {
   // Study Actions
   saveStudySession: (session: Omit<StudySession, 'id' | 'userId' | 'createdAt'>, createAutoReviews: boolean) => Promise<void>;
   deleteStudySession: (id: string) => Promise<void>;
+
+  // Weekly Planner Actions
+  saveWeeklyPlanner: (planner: Omit<WeeklyPlanner, 'userId' | 'createdAt'>) => Promise<void>;
+  deleteWeeklyPlanner: (id: string) => Promise<void>;
 
   // Review Actions
   completeReview: (reviewId: string, performance: ReviewPerformance) => Promise<void>;
@@ -88,6 +94,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [reviews, setReviews] = useState<Review[]>([]);
   const [questions, setQuestions] = useState<QuestionSession[]>([]);
   const [errors, setErrors] = useState<ErrorEntry[]>([]);
+  const [weeklyPlanners, setWeeklyPlanners] = useState<WeeklyPlanner[]>([]);
 
   // 1. Auth Listener
   useEffect(() => {
@@ -118,6 +125,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         setReviews([]);
         setQuestions([]);
         setErrors([]);
+        setWeeklyPlanners([]);
       }
     });
     return unsubscribe;
@@ -177,6 +185,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleFirestoreError(err, OperationType.LIST, "errors");
     });
 
+    const unsubWeeklyPlanners = onSnapshot(collection(db, "users", uId, "weeklyPlanner"), (snap) => {
+      const list = snap.docs
+        .map(d => d.data() as WeeklyPlanner);
+      setWeeklyPlanners(list.sort((a, b) => a.createdAt.localeCompare(b.createdAt)));
+    }, (err) => {
+      handleFirestoreError(err, OperationType.LIST, "weeklyPlanner");
+    });
+
     return () => {
       unsubSubjects();
       unsubContents();
@@ -184,6 +200,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       unsubReviews();
       unsubQuestions();
       unsubErrors();
+      unsubWeeklyPlanners();
     };
   }, [user]);
 
@@ -380,6 +397,38 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     const path = `users/${user.uid}/studies/${id}`;
     try {
       await deleteDoc(doc(db, "users", user.uid, "studies", id));
+    } catch (e) {
+      handleFirestoreError(e, OperationType.DELETE, path);
+    }
+  };
+
+  // WEEKLY PLANNER CRUD
+  const saveWeeklyPlanner = async (planner: Omit<WeeklyPlanner, "userId" | "createdAt">) => {
+    if (!user) return;
+    const nowStr = new Date().toISOString();
+    const id = planner.id || `week_${Math.random().toString(36).substring(2, 11)}`;
+    const path = `users/${user.uid}/weeklyPlanner/${id}`;
+    
+    try {
+      const docRef = doc(db, "users", user.uid, "weeklyPlanner", id);
+      const isNew = !planner.id;
+      const data: WeeklyPlanner = {
+        ...planner,
+        id,
+        userId: user.uid,
+        createdAt: isNew ? nowStr : (weeklyPlanners.find(wp => wp.id === id)?.createdAt || nowStr),
+      };
+      await setDoc(docRef, data);
+    } catch (e) {
+      handleFirestoreError(e, planner.id ? OperationType.UPDATE : OperationType.CREATE, path);
+    }
+  };
+
+  const deleteWeeklyPlanner = async (id: string) => {
+    if (!user) return;
+    const path = `users/${user.uid}/weeklyPlanner/${id}`;
+    try {
+      await deleteDoc(doc(db, "users", user.uid, "weeklyPlanner", id));
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, path);
     }
@@ -582,7 +631,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       studies,
       reviews,
       questions,
-      errors
+      errors,
+      weeklyPlanners
     };
     return JSON.stringify(dataObj, null, 2);
   };
@@ -729,6 +779,22 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         });
       }
 
+      // Import weekly planners
+      if (Array.isArray(parsed.weeklyPlanners)) {
+        parsed.weeklyPlanners.forEach((wp: any) => {
+          if (wp.id && wp.titulo) {
+            const docRef = doc(db, "users", uid, "weeklyPlanner", wp.id);
+            batch.set(docRef, {
+              id: wp.id,
+              userId: uid,
+              titulo: wp.titulo,
+              linhas: Array.isArray(wp.linhas) ? wp.linhas : [],
+              createdAt: wp.createdAt || new Date().toISOString()
+            });
+          }
+        });
+      }
+
       await batch.commit();
       console.log("JSON import successful!");
     } catch (e) {
@@ -742,7 +808,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     console.log("Wiping all cloud database registries for user:", user.uid);
     
     try {
-      const collectionsToWipe = ["subjects", "contents", "studies", "reviews", "questions", "errors"];
+      const collectionsToWipe = ["subjects", "contents", "studies", "reviews", "questions", "errors", "weeklyPlanner"];
       
       for (const colName of collectionsToWipe) {
         const snap = await getDocs(collection(db, "users", user.uid, colName));
@@ -773,6 +839,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       reviews,
       questions,
       errors,
+      weeklyPlanners,
       dbLoading,
       login,
       logout,
@@ -782,6 +849,8 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       deleteContent,
       saveStudySession,
       deleteStudySession,
+      saveWeeklyPlanner,
+      deleteWeeklyPlanner,
       completeReview,
       deleteReview,
       scheduleCustomReview,

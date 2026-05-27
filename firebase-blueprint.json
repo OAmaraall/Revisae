@@ -104,6 +104,18 @@
         "createdAt": { "type": "string" }
       },
       "required": ["userId", "data", "materiaId", "conteudoId", "descricaoErro", "explicacaoCorreta", "comoEvitar", "status", "createdAt"]
+    },
+    "weeklyPlanner": {
+      "title": "WeeklyPlanner",
+      "description": "Weekly study schedule planner containing subjects and mapped study topics",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "titulo": { "type": "string" },
+        "linhas": { "type": "array" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "titulo", "linhas", "createdAt"]
     }
   },
   "firestore": {
@@ -130,6 +142,10 @@
     "/errors/{errorId}": {
       "schema": "error",
       "description": "Caderno de erros entries"
+    },
+    "/users/{userId}/weeklyPlanner/{plannerId}": {
+      "schema": "weeklyPlanner",
+      "description": "Weekly planner documents for users"
     }
   }
 }

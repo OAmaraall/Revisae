@@ -95,3 +95,18 @@ export interface ErrorEntry {
   status: ErrorStatus;
   createdAt: string;
 }
+
+export interface PlannerRow {
+  id: string;
+  materiaId: string; // Subject ID inside system, or "extra" / custom
+  conteudos: string; // text list or notes of contents
+}
+
+export interface WeeklyPlanner {
+  id: string;
+  userId: string;
+  titulo: string; // E.g., "Semana 1: 27/05 a 02/06"
+  linhas: PlannerRow[];
+  createdAt: string;
+}
+

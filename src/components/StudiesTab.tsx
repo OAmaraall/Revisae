@@ -3,6 +3,7 @@ import { useData } from '../context/DataContext';
 import { StudyMethod, DifficultyLevel } from '../types';
 import { Plus, X, BookOpen, Clock, Activity, CheckSquare, Award } from 'lucide-react';
 import { ConfirmModal } from './ConfirmModal';
+import { WeeklyPlannerSection } from './WeeklyPlannerSection';
 
 interface StudiesTabProps {
   quickPreselectedContentId?: string;
@@ -139,6 +140,9 @@ export const StudiesTab: React.FC<StudiesTabProps> = ({
 
   return (
     <div className="space-y-6">
+      
+      {/* Weekly Planner Organizer Section */}
+      <WeeklyPlannerSection />
       
       {/* Title & Trigger Button */}
       <div className="flex items-center justify-between">
