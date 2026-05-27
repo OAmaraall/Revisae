@@ -1,11 +1,22 @@
 import { initializeApp } from 'firebase/app';
 import { getAuth, GoogleAuthProvider, signInWithPopup, signOut } from 'firebase/auth';
 import { getFirestore, doc, getDocFromServer } from 'firebase/firestore';
-import firebaseConfig from '../firebase-applet-config.json';
+import { getAnalytics } from 'firebase/analytics';
+
+const firebaseConfig = {
+  apiKey: "AIzaSyDcTc5seqt0k3IcWtf7du2IOm7y39VA29o",
+  authDomain: "revisa-52274.firebaseapp.com",
+  projectId: "revisa-52274",
+  storageBucket: "revisa-52274.firebasestorage.app",
+  messagingSenderId: "562460322652",
+  appId: "1:562460322652:web:49e21ee45cece48c6caf99",
+  measurementId: "G-1G5F6513E3"
+};
 
 const app = initializeApp(firebaseConfig);
-export const db = getFirestore(app, firebaseConfig.firestoreDatabaseId); /* CRITICAL: The app will break without this line */
+export const db = getFirestore(app);
 export const auth = getAuth();
+export const analytics = typeof window !== 'undefined' ? getAnalytics(app) : null;
 export const googleProvider = new GoogleAuthProvider();
 
 export enum OperationType {

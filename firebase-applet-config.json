@@ -1,10 +1,10 @@
 {
-  "projectId": "arboreal-client-xv7sv",
-  "appId": "1:201146050597:web:96654bd7f72b3afa92b7cc",
-  "apiKey": "AIzaSyA3PjrPbDee2wSVQOXjdzbkVIr2xC-tmzI",
-  "authDomain": "arboreal-client-xv7sv.firebaseapp.com",
-  "firestoreDatabaseId": "ai-studio-3a4240c5-2867-4348-b391-31efff3ea083",
-  "storageBucket": "arboreal-client-xv7sv.firebasestorage.app",
-  "messagingSenderId": "201146050597",
-  "measurementId": ""
+  "projectId": "revisa-52274",
+  "appId": "1:562460322652:web:49e21ee45cece48c6caf99",
+  "apiKey": "AIzaSyDcTc5seqt0k3IcWtf7du2IOm7y39VA29o",
+  "authDomain": "revisa-52274.firebaseapp.com",
+  "firestoreDatabaseId": "(default)",
+  "storageBucket": "revisa-52274.firebasestorage.app",
+  "messagingSenderId": "562460322652",
+  "measurementId": "G-1G5F6513E3"
 }
