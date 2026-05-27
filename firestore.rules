@@ -99,6 +99,10 @@ service cloud.firestore {
 
     // 3. Collection Rules
     
+    match /users/{userId} {
+      allow read, write: if isSignedIn() && isOwner(userId);
+    }
+
     match /subjects/{subjectId} {
       allow create: if isSignedIn() && isValidId(subjectId) && isValidSubject(request.resource.data);
       allow get: if isSignedIn() && isOwner(resource.data.userId);

@@ -99,6 +99,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (currentUser) {
         setDbLoading(true);
         try {
+          // Save user basic info in users/{uid}
+          await setDoc(doc(db, "users", currentUser.uid), {
+            uid: currentUser.uid,
+            nome: currentUser.displayName || "",
+            email: currentUser.email || "",
+            lastLogin: new Date().toISOString()
+          }, { merge: true });
+
           // Seeds example subjects & contents if they don't have any
           await seedUserDataIfEmpty(currentUser.uid);
         } catch (e) {
