@@ -133,7 +133,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     const uId = user.uid;
 
-    const unsubSubjects = onSnapshot(query(collection(db, "subjects"), where("userId", "==", uId)), (snap) => {
+    const unsubSubjects = onSnapshot(collection(db, "users", uId, "subjects"), (snap) => {
       const list = snap.docs
         .map(d => d.data() as Subject);
       setSubjects(list.sort((a, b) => a.nome.localeCompare(b.nome)));
@@ -141,7 +141,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleFirestoreError(err, OperationType.LIST, "subjects");
     });
 
-    const unsubContents = onSnapshot(query(collection(db, "contents"), where("userId", "==", uId)), (snap) => {
+    const unsubContents = onSnapshot(collection(db, "users", uId, "contents"), (snap) => {
       const list = snap.docs
         .map(d => d.data() as Content);
       setContents(list.sort((a, b) => a.nome.localeCompare(b.nome)));
@@ -149,7 +149,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleFirestoreError(err, OperationType.LIST, "contents");
     });
 
-    const unsubStudies = onSnapshot(query(collection(db, "studies"), where("userId", "==", uId)), (snap) => {
+    const unsubStudies = onSnapshot(collection(db, "users", uId, "studies"), (snap) => {
       const list = snap.docs
         .map(d => d.data() as StudySession);
       setStudies(list.sort((a, b) => b.data.localeCompare(a.data)));
@@ -157,7 +157,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleFirestoreError(err, OperationType.LIST, "studies");
     });
 
-    const unsubReviews = onSnapshot(query(collection(db, "reviews"), where("userId", "==", uId)), (snap) => {
+    const unsubReviews = onSnapshot(collection(db, "users", uId, "reviews"), (snap) => {
       const list = snap.docs
         .map(d => d.data() as Review);
       setReviews(list.sort((a, b) => a.dataPrevista.localeCompare(b.dataPrevista)));
@@ -165,7 +165,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleFirestoreError(err, OperationType.LIST, "reviews");
     });
 
-    const unsubQuestions = onSnapshot(query(collection(db, "questions"), where("userId", "==", uId)), (snap) => {
+    const unsubQuestions = onSnapshot(collection(db, "users", uId, "questions"), (snap) => {
       const list = snap.docs
         .map(d => d.data() as QuestionSession);
       setQuestions(list.sort((a, b) => b.data.localeCompare(a.data)));
@@ -173,7 +173,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       handleFirestoreError(err, OperationType.LIST, "questions");
     });
 
-    const unsubErrors = onSnapshot(query(collection(db, "errors"), where("userId", "==", uId)), (snap) => {
+    const unsubErrors = onSnapshot(collection(db, "users", uId, "errors"), (snap) => {
       const list = snap.docs
         .map(d => d.data() as ErrorEntry);
       setErrors(list.sort((a, b) => b.data.localeCompare(a.data)));
@@ -205,10 +205,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     const nowStr = new Date().toISOString();
     const id = subject.id || `sub_${Math.random().toString(36).substring(2, 11)}`;
-    const path = `subjects/${id}`;
+    const path = `users/${user.uid}/subjects/${id}`;
     
     try {
-      const docRef = doc(db, "subjects", id);
+      const docRef = doc(db, "users", user.uid, "subjects", id);
       const isNew = !subject.id;
       const data: Subject = {
         id,
@@ -228,9 +228,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteSubject = async (id: string) => {
     if (!user) return;
-    const path = `subjects/${id}`;
+    const path = `users/${user.uid}/subjects/${id}`;
     try {
-      await deleteDoc(doc(db, "subjects", id));
+      await deleteDoc(doc(db, "users", user.uid, "subjects", id));
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, path);
     }
@@ -241,10 +241,10 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     const nowStr = new Date().toISOString();
     const id = content.id || `cont_${Math.random().toString(36).substring(2, 11)}`;
-    const path = `contents/${id}`;
+    const path = `users/${user.uid}/contents/${id}`;
     
     try {
-      const docRef = doc(db, "contents", id);
+      const docRef = doc(db, "users", user.uid, "contents", id);
       const isNew = !content.id;
       const data: Content = {
         ...content,
@@ -264,9 +264,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteContent = async (id: string) => {
     if (!user) return;
-    const path = `contents/${id}`;
+    const path = `users/${user.uid}/contents/${id}`;
     try {
-      await deleteDoc(doc(db, "contents", id));
+      await deleteDoc(doc(db, "users", user.uid, "contents", id));
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, path);
     }
@@ -280,13 +280,13 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     const nowStr = new Date().toISOString();
     const id = `study_${Math.random().toString(36).substring(2, 11)}`;
-    const path = `studies/${id}`;
+    const path = `users/${user.uid}/studies/${id}`;
     
     try {
       const batch = writeBatch(db);
       
       // 1. Save study session
-      const studyDocRef = doc(db, "studies", id);
+      const studyDocRef = doc(db, "users", user.uid, "studies", id);
       const studyData: StudySession = {
         ...session,
         id,
@@ -299,7 +299,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       batch.set(studyDocRef, studyData);
 
       // 2. Adjust or update Content status if study metadata is changed
-      const contentDocRef = doc(db, "contents", session.conteudoId);
+      const contentDocRef = doc(db, "users", user.uid, "contents", session.conteudoId);
       const foundContent = contents.find(c => c.id === session.conteudoId);
       if (foundContent) {
         // Automatically elevate status based on study actions if logical
@@ -336,7 +336,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         for (const item of intervals) {
           const reviewId = `rev_${Math.random().toString(36).substring(2, 11)}`;
-          const revDocRef = doc(db, "reviews", reviewId);
+          const revDocRef = doc(db, "users", user.uid, "reviews", reviewId);
           
           const scheduledTime = new Date(baseTime + item.days * 24 * 60 * 60 * 1000);
           const predStr = scheduledTime.toISOString().split('T')[0];
@@ -364,9 +364,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteStudySession = async (id: string) => {
     if (!user) return;
-    const path = `studies/${id}`;
+    const path = `users/${user.uid}/studies/${id}`;
     try {
-      await deleteDoc(doc(db, "studies", id));
+      await deleteDoc(doc(db, "users", user.uid, "studies", id));
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, path);
     }
@@ -377,11 +377,11 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     const nowStr = new Date().toISOString();
     const todayStr = nowStr.split('T')[0];
-    const path = `reviews/${reviewId}`;
+    const path = `users/${user.uid}/reviews/${reviewId}`;
 
     try {
       const batch = writeBatch(db);
-      const reviewDocRef = doc(db, "reviews", reviewId);
+      const reviewDocRef = doc(db, "users", user.uid, "reviews", reviewId);
       const targetReview = reviews.find(r => r.id === reviewId);
       if (!targetReview) return;
 
@@ -398,7 +398,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // "Se desempenho for Bom, manter o fluxo normal."
       if (performance === "Ruim") {
         const nextId = `rev_${Math.random().toString(36).substring(2, 11)}`;
-        const nextDocRef = doc(db, "reviews", nextId);
+        const nextDocRef = doc(db, "users", user.uid, "reviews", nextId);
         
         const nextTime = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
         const nextDateStr = nextTime.toISOString().split('T')[0];
@@ -416,7 +416,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         batch.set(nextDocRef, adaptiveReview);
       } else if (performance === "Médio") {
         const nextId = `rev_${Math.random().toString(36).substring(2, 11)}`;
-        const nextDocRef = doc(db, "reviews", nextId);
+        const nextDocRef = doc(db, "users", user.uid, "reviews", nextId);
         
         const nextTime = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000);
         const nextDateStr = nextTime.toISOString().split('T')[0];
@@ -442,9 +442,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteReview = async (reviewId: string) => {
     if (!user) return;
-    const path = `reviews/${reviewId}`;
+    const path = `users/${user.uid}/reviews/${reviewId}`;
     try {
-      await deleteDoc(doc(db, "reviews", reviewId));
+      await deleteDoc(doc(db, "users", user.uid, "reviews", reviewId));
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, path);
     }
@@ -454,7 +454,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     const nowStr = new Date().toISOString();
     const id = `rev_${Math.random().toString(36).substring(2, 11)}`;
-    const path = `reviews/${id}`;
+    const path = `users/${user.uid}/reviews/${id}`;
 
     try {
       const scheduledTime = new Date(Date.now() + daysAhead * 24 * 60 * 60 * 1000);
@@ -471,7 +471,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: nowStr
       };
 
-      await setDoc(doc(db, "reviews", id), reviewData);
+      await setDoc(doc(db, "users", user.uid, "reviews", id), reviewData);
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, path);
     }
@@ -482,7 +482,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     const nowStr = new Date().toISOString();
     const id = `q_${Math.random().toString(36).substring(2, 11)}`;
-    const path = `questions/${id}`;
+    const path = `users/${user.uid}/questions/${id}`;
 
     try {
       const total = Number(session.totalQuestoes);
@@ -501,7 +501,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         createdAt: nowStr
       };
 
-      await setDoc(doc(db, "questions", id), qData);
+      await setDoc(doc(db, "users", user.uid, "questions", id), qData);
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, path);
     }
@@ -509,9 +509,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteQuestionSession = async (id: string) => {
     if (!user) return;
-    const path = `questions/${id}`;
+    const path = `users/${user.uid}/questions/${id}`;
     try {
-      await deleteDoc(doc(db, "questions", id));
+      await deleteDoc(doc(db, "users", user.uid, "questions", id));
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, path);
     }
@@ -522,7 +522,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
     if (!user) return;
     const nowStr = new Date().toISOString();
     const id = errorEntry.id || `err_${Math.random().toString(36).substring(2, 11)}`;
-    const path = `errors/${id}`;
+    const path = `users/${user.uid}/errors/${id}`;
 
     try {
       const isNew = !errorEntry.id;
@@ -533,7 +533,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         status: errorEntry.status as ErrorStatus,
         createdAt: isNew ? nowStr : (errors.find(e => e.id === id)?.createdAt || nowStr),
       };
-      await setDoc(doc(db, "errors", id), data);
+      await setDoc(doc(db, "users", user.uid, "errors", id), data);
     } catch (e) {
       handleFirestoreError(e, errorEntry.id ? OperationType.UPDATE : OperationType.CREATE, path);
     }
@@ -541,9 +541,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const toggleErrorStatus = async (id: string, newStatus: ErrorStatus) => {
     if (!user) return;
-    const path = `errors/${id}`;
+    const path = `users/${user.uid}/errors/${id}`;
     try {
-      await updateDoc(doc(db, "errors", id), { status: newStatus });
+      await updateDoc(doc(db, "users", user.uid, "errors", id), { status: newStatus });
     } catch (e) {
       handleFirestoreError(e, OperationType.UPDATE, path);
     }
@@ -551,9 +551,9 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
   const deleteErrorEntry = async (id: string) => {
     if (!user) return;
-    const path = `errors/${id}`;
+    const path = `users/${user.uid}/errors/${id}`;
     try {
-      await deleteDoc(doc(db, "errors", id));
+      await deleteDoc(doc(db, "users", user.uid, "errors", id));
     } catch (e) {
       handleFirestoreError(e, OperationType.DELETE, path);
     }
@@ -591,7 +591,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (Array.isArray(parsed.subjects)) {
         parsed.subjects.forEach((sub: any) => {
           if (sub.id && sub.nome) {
-            const docRef = doc(db, "subjects", sub.id);
+            const docRef = doc(db, "users", uid, "subjects", sub.id);
             batch.set(docRef, {
               id: sub.id,
               userId: uid,
@@ -610,7 +610,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (Array.isArray(parsed.contents)) {
         parsed.contents.forEach((cont: any) => {
           if (cont.id && cont.nome && cont.materiaId) {
-            const docRef = doc(db, "contents", cont.id);
+            const docRef = doc(db, "users", uid, "contents", cont.id);
             batch.set(docRef, {
               id: cont.id,
               userId: uid,
@@ -633,7 +633,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (Array.isArray(parsed.studies)) {
         parsed.studies.forEach((st: any) => {
           if (st.id && st.materiaId && st.conteudoId) {
-            const docRef = doc(db, "studies", st.id);
+            const docRef = doc(db, "users", uid, "studies", st.id);
             batch.set(docRef, {
               id: st.id,
               userId: uid,
@@ -656,7 +656,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (Array.isArray(parsed.reviews)) {
         parsed.reviews.forEach((rv: any) => {
           if (rv.id && rv.conteudoId && rv.materiaId) {
-            const docRef = doc(db, "reviews", rv.id);
+            const docRef = doc(db, "users", uid, "reviews", rv.id);
             batch.set(docRef, {
               id: rv.id,
               userId: uid,
@@ -677,7 +677,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (Array.isArray(parsed.questions)) {
         parsed.questions.forEach((q: any) => {
           if (q.id && q.materiaId && q.conteudoId) {
-            const docRef = doc(db, "questions", q.id);
+            const docRef = doc(db, "users", uid, "questions", q.id);
             batch.set(docRef, {
               id: q.id,
               userId: uid,
@@ -699,7 +699,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (Array.isArray(parsed.errors)) {
         parsed.errors.forEach((err: any) => {
           if (err.id && err.materiaId && err.conteudoId) {
-            const docRef = doc(db, "errors", err.id);
+            const docRef = doc(db, "users", uid, "errors", err.id);
             batch.set(docRef, {
               id: err.id,
               userId: uid,
@@ -732,14 +732,14 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const collectionsToWipe = ["subjects", "contents", "studies", "reviews", "questions", "errors"];
       
       for (const colName of collectionsToWipe) {
-        const snap = await getDocs(query(collection(db, colName), where("userId", "==", user.uid)));
+        const snap = await getDocs(collection(db, "users", user.uid, colName));
         const userDocs = snap.docs;
         if (userDocs.length === 0) continue;
 
         // Perform parallel batch deletes
         const batch = writeBatch(db);
         userDocs.forEach(d => {
-          batch.delete(doc(db, colName, d.id));
+          batch.delete(doc(db, "users", user.uid, colName, d.id));
         });
         await batch.commit();
       }

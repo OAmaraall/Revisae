@@ -47,7 +47,7 @@ export const DEFAULT_CONTENTS: { [key: string]: string[] } = {
 export async function seedUserDataIfEmpty(userId: string) {
   try {
     // Check if subjects collection already has some items for this user
-    const subjectsSnap = await getDocs(query(collection(db, "subjects"), where("userId", "==", userId)));
+    const subjectsSnap = await getDocs(collection(db, "users", userId, "subjects"));
     const userSubjects = subjectsSnap.docs;
 
     if (userSubjects.length > 0) {
@@ -64,7 +64,7 @@ export async function seedUserDataIfEmpty(userId: string) {
 
     for (const sub of DEFAULT_SUBJECTS) {
       const newId = `sub_${Math.random().toString(36).substring(2, 11)}`;
-      const subDocRef = doc(db, "subjects", newId);
+      const subDocRef = doc(db, "users", userId, "subjects", newId);
       
       const subjectData: Subject = {
         id: newId,
@@ -88,7 +88,7 @@ export async function seedUserDataIfEmpty(userId: string) {
 
       for (const contentNome of contentsList) {
         const contentId = `cont_${Math.random().toString(36).substring(2, 11)}`;
-        const contentDocRef = doc(db, "contents", contentId);
+        const contentDocRef = doc(db, "users", userId, "contents", contentId);
         
         // Give some initial offset days for realistic scheduling deadlines
         const randomDaysOffset = Math.floor(Math.random() * 20) + 1;
