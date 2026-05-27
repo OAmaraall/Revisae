@@ -1,140 +1,130 @@
-import React, { useState } from 'react';
+import React, { useState, useMemo } from 'react';
 import { useData } from '../context/DataContext';
-import { WeeklyPlanner, PlannerRow } from '../types';
+import { WeeklyPlanner, PlannerItem, Subject, Content } from '../types';
 import { 
-  ChevronDown, 
-  ChevronRight, 
+  Calendar, 
   Plus, 
   Trash2, 
-  Edit3, 
   X, 
-  Save, 
-  Calendar, 
-  PlusCircle,
-  HelpCircle
+  Check, 
+  Circle, 
+  CheckCircle2, 
+  FolderMinus, 
+  ChevronRight, 
+  ChevronDown, 
+  Edit3, 
+  LogOut, 
+  AlertCircle,
+  HelpCircle,
+  Clock,
+  ExternalLink
 } from 'lucide-react';
 import { ConfirmModal } from './ConfirmModal';
 
+const DIAS_SEMANA = [
+  "Segunda", 
+  "Terça", 
+  "Quarta", 
+  "Quinta", 
+  "Sexta", 
+  "Sábado", 
+  "Domingo"
+] as const;
+
+type DiaSemanaType = typeof DIAS_SEMANA[number];
+
+// Helper to get nice background colors for weekdays
+const getDayTheme = (dia: DiaSemanaType) => {
+  switch (dia) {
+    case 'Segunda': return { bg: 'bg-indigo-50/40 border-indigo-100', text: 'text-indigo-700', badge: 'bg-indigo-100/80 text-indigo-700' };
+    case 'Terça': return { bg: 'bg-emerald-50/40 border-emerald-100', text: 'text-emerald-700', badge: 'bg-emerald-100/80 text-emerald-700' };
+    case 'Quarta': return { bg: 'bg-sky-50/40 border-sky-100', text: 'text-sky-700', badge: 'bg-sky-100/80 text-sky-700' };
+    case 'Quinta': return { bg: 'bg-amber-50/40 border-amber-100', text: 'text-amber-700', badge: 'bg-amber-100/80 text-amber-700' };
+    case 'Sexta': return { bg: 'bg-purple-50/40 border-purple-100', text: 'text-purple-700', badge: 'bg-purple-100/80 text-purple-700' };
+    case 'Sábado': return { bg: 'bg-rose-50/40 border-rose-100', text: 'text-rose-700', badge: 'bg-rose-100/80 text-rose-700' };
+    case 'Domingo': return { bg: 'bg-teal-50/40 border-teal-100', text: 'text-teal-700', badge: 'bg-teal-100/80 text-teal-700' };
+    default: return { bg: 'bg-slate-50 border-slate-100', text: 'text-slate-700', badge: 'bg-slate-100 text-slate-700' };
+  }
+};
+
 export const WeeklyPlannerSection: React.FC = () => {
-  const { weeklyPlanners, subjects, saveWeeklyPlanner, deleteWeeklyPlanner } = useData();
+  const { 
+    weeklyPlanners, 
+    subjects, 
+    contents, 
+    saveWeeklyPlanner, 
+    deleteWeeklyPlanner, 
+    saveStudySession 
+  } = useData();
 
-  // Selected week accordion state (IDs of expanded weeks)
-  const [expandedWeeks, setExpandedWeeks] = useState<Record<string, boolean>>({});
+  // Active / Selected planner ID (defaults to the first one, or null)
+  const [selectedPlannerId, setSelectedPlannerId] = useState<string>(() => {
+    return weeklyPlanners[0]?.id || '';
+  });
 
-  // UI state for creating/editing week
-  const [editorOpen, setEditorOpen] = useState(false);
-  const [editingPlanner, setEditingPlanner] = useState<Partial<WeeklyPlanner> | null>(null);
-  
-  // Week deletion confirm modal
+  // State to track edited calendar titles
+  const [isEditingTitle, setIsEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+
+  // Find the currently active WeeklyPlanner document
+  const activePlanner = useMemo(() => {
+    let planner = weeklyPlanners.find(wp => wp.id === selectedPlannerId);
+    if (!planner && weeklyPlanners.length > 0) {
+      planner = weeklyPlanners[0];
+    }
+    return planner;
+  }, [weeklyPlanners, selectedPlannerId]);
+
+  // Keep selected ID synchronized if empty
+  React.useEffect(() => {
+    if (activePlanner && !selectedPlannerId) {
+      setSelectedPlannerId(activePlanner.id);
+    }
+  }, [activePlanner, selectedPlannerId]);
+
+  // Adding pane state tracked per day
+  // Maps diaSemana -> { selectMateriaId: string, selectConteudoId: string } or null
+  const [addingState, setAddingState] = useState<Record<string, { subjectId: string; contentId: string } | null>>({});
+
+  // Confirmation Delete dialog state
   const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   const [deleteId, setDeleteId] = useState('');
   const [deleteTitle, setDeleteTitle] = useState('');
 
-  const toggleWeek = (id: string) => {
-    setExpandedWeeks(prev => ({
-      ...prev,
-      [id]: !prev[id]
-    }));
+  // Info notification toast string to feedback logged studies
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
+
+  const showToast = (msg: string) => {
+    setToastMessage(msg);
+    setTimeout(() => {
+      setToastMessage(null);
+    }, 4500);
   };
 
-  const handleOpenCreate = () => {
-    // Determine next week name dynamically
-    let defaultTitle = `Semana 1: `;
-    if (weeklyPlanners.length > 0) {
-      defaultTitle = `Semana ${weeklyPlanners.length + 1}: `;
-    }
-
-    // Pre-populate with current subjects
-    const defaultRows: PlannerRow[] = subjects.map(s => ({
-      id: `row_${Math.random().toString(36).substring(2, 9)}`,
-      materiaId: s.id,
-      conteudos: ''
-    }));
-
-    // Add an extra row by default
-    defaultRows.push({
-      id: `row_${Math.random().toString(36).substring(2, 9)}`,
-      materiaId: 'extra',
-      conteudos: ''
-    });
-
-    setEditingPlanner({
-      titulo: defaultTitle,
-      linhas: defaultRows
-    });
-    setEditorOpen(true);
-  };
-
-  const handleOpenEdit = (planner: WeeklyPlanner) => {
-    setEditingPlanner({
-      id: planner.id,
-      titulo: planner.titulo,
-      linhas: [...planner.linhas]
-    });
-    setEditorOpen(true);
-  };
-
-  const handleAddEditorRow = () => {
-    if (!editingPlanner) return;
-    const currentRows = editingPlanner.linhas || [];
-    const newRow: PlannerRow = {
-      id: `row_${Math.random().toString(36).substring(2, 9)}`,
-      materiaId: subjects[0]?.id || 'extra',
-      conteudos: ''
-    };
-    setEditingPlanner({
-      ...editingPlanner,
-      linhas: [...currentRows, newRow]
-    });
-  };
-
-  const handleRemoveEditorRow = (rowId: string) => {
-    if (!editingPlanner) return;
-    const currentRows = editingPlanner.linhas || [];
-    setEditingPlanner({
-      ...editingPlanner,
-      linhas: currentRows.filter(r => r.id !== rowId)
-    });
-  };
-
-  const handleRowFieldChange = (rowId: string, field: 'materiaId' | 'conteudos', value: string) => {
-    if (!editingPlanner) return;
-    const currentRows = editingPlanner.linhas || [];
-    const updated = currentRows.map(r => {
-      if (r.id === rowId) {
-        return { ...r, [field]: value };
-      }
-      return r;
-    });
-    setEditingPlanner({
-      ...editingPlanner,
-      linhas: updated
-    });
-  };
-
-  const handleSavePlanner = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!editingPlanner || !editingPlanner.titulo?.trim()) {
-      alert("Por favor, preencha o título da semana.");
-      return;
-    }
-
+  // Create an automatic or initial weekly schedule
+  const handleCreateNewPlanner = async () => {
+    const defaultTitle = `Minha Grade de Estudos (${weeklyPlanners.length + 1})`;
+    const id = `week_${Math.random().toString(36).substring(2, 11)}`;
+    
     try {
       await saveWeeklyPlanner({
-        id: editingPlanner.id,
-        titulo: editingPlanner.titulo.trim(),
-        linhas: editingPlanner.linhas || []
+        id,
+        titulo: defaultTitle,
+        itens: []
       });
-      setEditorOpen(false);
-      setEditingPlanner(null);
+      setSelectedPlannerId(id);
+      setEditedTitle(defaultTitle);
+      showToast("Criou uma nova página de organização semanal! \u2728");
     } catch (err) {
-      alert("Erro ao gravar o planejamento semanal.");
+      alert("Erro ao criar a semanada.");
     }
   };
 
-  const handleDeleteTrigger = (id: string, title: string) => {
-    setDeleteId(id);
-    setDeleteTitle(title);
+  // Excluir a semana ativa
+  const handleDeleteTrigger = () => {
+    if (!activePlanner) return;
+    setDeleteId(activePlanner.id);
+    setDeleteTitle(activePlanner.titulo);
     setConfirmDeleteOpen(true);
   };
 
@@ -142,297 +132,548 @@ export const WeeklyPlannerSection: React.FC = () => {
     try {
       await deleteWeeklyPlanner(deleteId);
       setConfirmDeleteOpen(false);
+      // Fallback selector to next available planner or empty
+      const remainingPlanners = weeklyPlanners.filter(wp => wp.id !== deleteId);
+      if (remainingPlanners.length > 0) {
+        setSelectedPlannerId(remainingPlanners[0].id);
+      } else {
+        setSelectedPlannerId('');
+      }
+      showToast("Grade apagada com sucesso!");
     } catch (err) {
-      alert("Erro ao excluir planejamento.");
+      alert("Ocorreu um erro ao excluir.");
     }
   };
 
-  return (
-    <div className="bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-xs space-y-4">
+  // Update visual title
+  const handleSaveTitle = async () => {
+    if (!activePlanner || !editedTitle.trim()) {
+      setIsEditingTitle(false);
+      return;
+    }
+    try {
+      await saveWeeklyPlanner({
+        ...activePlanner,
+        titulo: editedTitle.trim()
+      });
+      setIsEditingTitle(false);
+    } catch (e) {
+      alert("Erro ao salvar título.");
+    }
+  };
+
+  // Start adding a meta to a specific weekday column
+  const handleOpenAddInline = (dia: DiaSemanaType) => {
+    // Pick the first available subject that has contents, or just the first subject
+    const subjectWithContents = subjects.find(s => contents.some(c => c.materiaId === s.id));
+    const initialSubjectId = subjectWithContents?.id || subjects[0]?.id || '';
+    
+    // Pick the first content of that subject
+    const relevantContents = contents.filter(c => c.materiaId === initialSubjectId);
+    const initialContentId = relevantContents[0]?.id || '';
+
+    setAddingState(prev => ({
+      ...prev,
+      [dia]: {
+        subjectId: initialSubjectId,
+        contentId: initialContentId
+      }
+    }));
+  };
+
+  // Change input variables during inline selection
+  const handleAddingFieldChange = (dia: DiaSemanaType, field: 'subjectId' | 'contentId', value: string) => {
+    const current = addingState[dia];
+    if (!current) return;
+
+    if (field === 'subjectId') {
+      // Find contents of the new selected subject
+      const relevantContents = contents.filter(c => c.materiaId === value);
+      const firstContentId = relevantContents[0]?.id || '';
       
-      {/* Header and Add Action */}
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3 pb-3 border-b border-slate-100">
-        <div className="flex items-center space-x-2.5">
-          <Calendar className="h-6 w-6 text-indigo-600" />
-          <div>
-            <h3 className="text-base font-bold text-slate-800">Organizador Semanal de Estudos 📅</h3>
-            <p className="text-xs text-slate-500">Formule suas metas semanais de disciplinas no estilo Notion e saiba exatamente o que estudar.</p>
-          </div>
-        </div>
-        <button
-          onClick={handleOpenCreate}
-          className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl flex items-center justify-center space-x-1 shadow-sm transition-colors self-start sm:self-center cursor-pointer"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          <span>Nova Semana</span>
-        </button>
-      </div>
+      setAddingState(prev => ({
+        ...prev,
+        [dia]: {
+          subjectId: value,
+          contentId: firstContentId
+        }
+      }));
+    } else {
+      setAddingState(prev => ({
+        ...prev,
+        [dia]: {
+          ...current,
+          contentId: value
+        }
+      }));
+    }
+  };
 
-      {/* Accordion list */}
-      {weeklyPlanners.length === 0 ? (
-        <div className="text-center py-8 bg-slate-50 rounded-2xl border border-dashed border-slate-200">
-          <Calendar className="h-8 w-8 text-slate-300 mx-auto mb-2" />
-          <p className="text-xs font-bold text-slate-600">Nenhum planejamento semanal iniciado.</p>
-          <p className="text-[11px] text-slate-400 max-w-sm mx-auto mt-0.5">
-            Crie sua primeira semana! Nós iremos preencher a colunas de matérias para você economizar tempo digitando.
-          </p>
-          <button
-            onClick={handleOpenCreate}
-            className="mt-3 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-[11px] px-3 py-1.5 rounded-lg transition-colors cursor-pointer"
-          >
-            Começar Organização
-          </button>
-        </div>
-      ) : (
-        <div className="space-y-3">
-          {weeklyPlanners.map((wp) => {
-            const isOpen = expandedWeeks[wp.id] !== false; // default to expanded
+  // Add the planned content into the WeeklyPlanner items
+  const handleAddPlannerItem = async (dia: DiaSemanaType) => {
+    const current = addingState[dia];
+    if (!activePlanner || !current || !current.subjectId || !current.contentId) {
+      // Close adding pane
+      setAddingState(prev => ({ ...prev, [dia]: null }));
+      return;
+    }
 
-            return (
-              <div 
-                key={wp.id} 
-                className="border border-slate-100 rounded-2xl overflow-hidden shadow-xs transition-colors"
-              >
-                {/* Accordion Trigger Header */}
-                <div 
-                  className="bg-slate-50/50 hover:bg-slate-50 p-4 flex items-center justify-between cursor-pointer select-none"
-                  onClick={() => toggleWeek(wp.id)}
-                >
-                  <div className="flex items-center space-x-2.5">
-                    {isOpen ? (
-                      <ChevronDown className="h-4.5 w-4.5 text-slate-400" />
-                    ) : (
-                      <ChevronRight className="h-4.5 w-4.5 text-slate-400" />
-                    )}
-                    <span className="text-sm font-extrabold text-slate-800 font-sans">
-                      {wp.titulo}
-                    </span>
-                  </div>
+    const newItem: PlannerItem = {
+      id: `item_${Math.random().toString(36).substring(2, 10)}`,
+      diaSemana: dia,
+      materiaId: current.subjectId,
+      conteudoId: current.contentId,
+      concluido: false
+    };
 
-                  {/* Actions for this week */}
-                  <div className="flex items-center space-x-1" onClick={(e) => e.stopPropagation()}>
-                    <button
-                      onClick={() => handleOpenEdit(wp)}
-                      title="Editar esta semana"
-                      className="p-1.5 text-slate-400 hover:text-indigo-600 hover:bg-indigo-55/40 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Edit3 className="h-4 w-4" />
-                    </button>
-                    <button
-                      onClick={() => handleDeleteTrigger(wp.id, wp.titulo)}
-                      title="Excluir semana"
-                      className="p-1.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="h-4 w-4" />
-                    </button>
-                  </div>
-                </div>
+    const updatedItens = [...(activePlanner.itens || []), newItem];
 
-                {/* Accordion Body - Notion Table */}
-                {isOpen && (
-                  <div className="p-4 bg-white border-t border-slate-50 overflow-x-auto">
-                    {wp.linhas.length === 0 ? (
-                      <div className="text-center py-4 text-xs text-slate-400 italic">
-                        Nenhuma matéria adicionada a essa semana ainda. Clique em editar para adicionar matérias.
-                      </div>
-                    ) : (
-                      <table className="w-full min-w-[500px] border-collapse text-left">
-                        <thead>
-                          <tr className="border-b border-slate-100 text-slate-400">
-                            <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider w-1/3">Matéria</th>
-                            <th className="py-2.5 px-3 text-[10.5px] font-bold uppercase tracking-wider w-2/3">Conteúdos</th>
-                          </tr>
-                        </thead>
-                        <tbody className="divide-y divide-slate-100/60">
-                          {wp.linhas.map((row) => {
-                            // Find corresponding real subject details if available
-                            const subjectDetails = subjects.find(s => s.id === row.materiaId);
-                            const isExtra = row.materiaId === 'extra';
+    try {
+      await saveWeeklyPlanner({
+        ...activePlanner,
+        itens: updatedItens
+      });
+      // Clear inline adding state for this day
+      setAddingState(prev => ({ ...prev, [dia]: null }));
+    } catch (err) {
+      alert("Erro ao salvar item na agenda.");
+    }
+  };
 
-                            return (
-                              <tr key={row.id} className="hover:bg-slate-50/25 transition-colors">
-                                {/* Subject Identifier */}
-                                <td className="py-3 px-3 align-top">
-                                  {isExtra ? (
-                                    <span className="inline-block bg-slate-100 text-slate-600 text-[10.5px] font-bold px-2.5 py-1 rounded-lg">
-                                      Complementares / Extra
-                                    </span>
-                                  ) : subjectDetails ? (
-                                    <span 
-                                      className="inline-block text-white text-[10.5px] font-bold px-2.5 py-1 rounded-lg shadow-xs"
-                                      style={{ backgroundColor: subjectDetails.cor }}
-                                    >
-                                      {subjectDetails.nome}
-                                    </span>
-                                  ) : (
-                                    <span className="inline-block bg-slate-100 text-slate-400 text-[10.5px] font-bold px-2.5 py-1 rounded-lg italic">
-                                      Matéria não encontrada
-                                    </span>
-                                  )}
-                                </td>
+  // Remove a planned content from the day column
+  const handleRemovePlannerItem = async (itemId: string) => {
+    if (!activePlanner) return;
+    const updatedItens = (activePlanner.itens || []).filter(it => it.id !== itemId);
+    try {
+      await saveWeeklyPlanner({
+        ...activePlanner,
+        itens: updatedItens
+      });
+    } catch (err) {
+      alert("Erro ao remover item.");
+    }
+  };
 
-                                {/* Planned Topics */}
-                                <td className="py-3 px-3 text-xs text-slate-700 font-medium whitespace-pre-wrap leading-relaxed">
-                                  {row.conteudos.trim() ? (
-                                    row.conteudos
-                                  ) : (
-                                    <span className="text-slate-300 italic font-normal">Nenhum conteúdo definido ainda</span>
-                                  )}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    )}
-                  </div>
-                )}
-              </div>
-            );
-          })}
+  // Toggle study checklist completed status
+  const handleToggleItemCheckbox = async (item: PlannerItem) => {
+    if (!activePlanner) return;
+    
+    const isChecking = !item.concluido;
+    const todayStr = new Date().toISOString().split('T')[0];
+
+    const updatedItens = (activePlanner.itens || []).map(it => {
+      if (it.id === item.id) {
+        return {
+          ...it,
+          concluido: isChecking,
+          estudadoEm: isChecking ? todayStr : undefined
+        };
+      }
+      return it;
+    });
+
+    try {
+      // Save changes in the schedule planner database
+      await saveWeeklyPlanner({
+        ...activePlanner,
+        itens: updatedItens
+      });
+
+      // Integrate with the study logs immediately if completing!
+      if (isChecking) {
+        const foundSubject = subjects.find(s => s.id === item.materiaId);
+        const foundContent = contents.find(c => c.id === item.conteudoId);
+        
+        await saveStudySession({
+          data: todayStr,
+          materiaId: item.materiaId,
+          conteudoId: item.conteudoId,
+          metodo: "Aula/resumo",
+          minutosEstudados: 30, // standard pre-set session time
+          questoesFeitas: 0,
+          acertos: 0,
+          dificuldadePercebida: "Médio",
+          observacao: "Log de estudo gerado pelo Planejador de Calendário Semanal 📅"
+        }, true); // creates auto-spaced repetitions default templates: +1d, +7d, +15d...
+
+        showToast(
+          `Concluído! Registrou sessão de estudo de "${foundContent?.nome || 'Conteúdo'}" (${foundSubject?.nome || 'Matéria'}) no histórico de estudos e gerou suas revisões futuras! 🚀`
+        );
+      } else {
+        showToast("Progresso desmarcado. O log registrado no histórico continua salvo.");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erro ao computar checklist de estudos.");
+    }
+  };
+
+  // Compute items mapped on weekdays
+  const plannerByDay = useMemo(() => {
+    const mapping: Record<DiaSemanaType, PlannerItem[]> = {
+      Segunda: [],
+      Terça: [],
+      Quarta: [],
+      Quinta: [],
+      Sexta: [],
+      Sábado: [],
+      Domingo: []
+    };
+
+    if (activePlanner && Array.isArray(activePlanner.itens)) {
+      activePlanner.itens.forEach(item => {
+        if (mapping[item.diaSemana]) {
+          mapping[item.diaSemana].push(item);
+        }
+      });
+    }
+
+    return mapping;
+  }, [activePlanner]);
+
+  return (
+    <div className="bg-white border border-slate-100 rounded-3xl p-5 md:p-6 shadow-sm space-y-5">
+      
+      {/* Toast Feedback */}
+      {toastMessage && (
+        <div className="fixed bottom-5 right-5 z-50 max-w-sm md:max-w-md bg-slate-900 border border-indigo-500/30 text-white rounded-2xl p-4 shadow-xl flex items-start space-x-3 text-xs animate-bounce">
+          <CheckCircle2 className="h-5 w-5 text-teal-400 shrink-0 mt-0.5" />
+          <p className="font-medium text-slate-100 leading-relaxed">{toastMessage}</p>
         </div>
       )}
 
-      {/* Scheduler Creator/Editor Modal */}
-      {editorOpen && editingPlanner && (
-        <div className="fixed inset-0 bg-slate-900/40 backdrop-blur-xs flex items-center justify-center p-4 z-50">
-          <div className="bg-white rounded-3xl max-w-2xl w-full max-h-[90vh] shadow-2xl border border-slate-150 flex flex-col overflow-hidden">
-            
-            {/* Header */}
-            <div className="p-5 border-b border-slate-100 flex items-center justify-between bg-slate-50/80">
-              <div className="flex items-center space-x-2">
-                <Calendar className="h-5.5 w-5.5 text-indigo-600" />
-                <h3 className="text-base font-bold text-slate-900">
-                  {editingPlanner.id ? "Editar Tabela Semanal" : "Criar Agenda Organizadora"}
-                </h3>
-              </div>
-              <button 
-                onClick={() => setEditorOpen(false)}
-                className="text-slate-400 hover:text-slate-600 p-1.5 hover:bg-slate-100 rounded-lg cursor-pointer"
+      {/* Header Info */}
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 pb-3 border-b border-indigo-50/50">
+        <div className="flex items-center space-x-3">
+          <div className="p-2.5 bg-indigo-50 text-indigo-600 rounded-2xl shadow-inner">
+            <Calendar className="h-6 w-6" />
+          </div>
+          <div>
+            <h3 className="text-base font-extrabold text-slate-800">Calendário Semanal de Estudos 🗓️</h3>
+            <p className="text-xs text-slate-500 font-medium">
+              Alavanque sua produtividade organizando o que estudar a cada dia da semana. Selecione conteúdos já criados e controle no calendário.
+            </p>
+          </div>
+        </div>
+
+        {/* Global Toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {weeklyPlanners.length > 0 && (
+            <div className="flex items-center space-x-1.5 bg-slate-50 border border-slate-250 p-1.5 rounded-xl">
+              <span className="text-[10px] font-extrabold text-slate-400 uppercase pl-1.5">Grade:</span>
+              <select
+                value={selectedPlannerId}
+                onChange={(e) => {
+                  setSelectedPlannerId(e.target.value);
+                  const found = weeklyPlanners.find(w => w.id === e.target.value);
+                  if (found) setEditedTitle(found.titulo);
+                  setIsEditingTitle(false);
+                }}
+                className="bg-white text-xs font-bold text-slate-700 px-2 py-1 rounded-lg border border-slate-200/65 focus:outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer min-w-[150px]"
               >
-                <X className="h-5 w-5" />
-              </button>
+                {weeklyPlanners.map(wp => (
+                  <option key={wp.id} value={wp.id}>{wp.titulo}</option>
+                ))}
+              </select>
             </div>
+          )}
 
-            {/* Scrollable Form Body */}
-            <form onSubmit={handleSavePlanner} className="flex-1 overflow-y-auto p-5 space-y-5">
-              
-              {/* Week Title Field */}
-              <div className="space-y-1">
-                <label className="text-xs font-bold text-slate-500 uppercase tracking-tight">
-                  Identificador da Semana *
-                </label>
-                <input 
-                  type="text"
-                  placeholder="Ex: Semana 2: 03/06 a 09/06"
-                  value={editingPlanner.titulo || ''}
-                  onChange={(e) => setEditingPlanner({ ...editingPlanner, titulo: e.target.value })}
-                  required
-                  className="w-full border border-slate-200 rounded-xl p-3 text-sm focus:ring-1 focus:ring-indigo-500 focus:outline-none bg-white font-semibold text-slate-800"
-                />
-              </div>
+          <button
+            onClick={handleCreateNewPlanner}
+            className="bg-indigo-650 hover:bg-indigo-700 text-white font-bold text-xs px-3.5 py-2 rounded-xl flex items-center justify-center space-x-1.5 shadow-xs transition-colors cursor-pointer"
+          >
+            <Plus className="h-3.5 w-3.5" />
+            <span>Nova Grade</span>
+          </button>
+        </div>
+      </div>
 
-              {/* Rows List */}
-              <div className="space-y-3">
-                <div className="flex items-center justify-between">
-                  <span className="text-xs font-extrabold text-slate-500 uppercase tracking-tight">
-                    Mapeamento de Matérias e Assuntos
-                  </span>
+      {/* No Planners State */}
+      {weeklyPlanners.length === 0 ? (
+        <div className="bg-slate-50 border border-dashed border-slate-200 rounded-2xl text-center p-8">
+          <Calendar className="h-10 w-10 text-indigo-400 mx-auto mb-3" />
+          <h4 className="text-sm font-bold text-slate-700">Comece a planejar sua rotina agora!</h4>
+          <p className="text-xs text-slate-450 mt-1 max-w-md mx-auto leading-relaxed">
+            Monte um cronograma integrado no estilo Notion ligando matérias, conteúdos cadastrados e checklist de logs para não ficar perdido sobre o que focar cada dia.
+          </p>
+          <button
+            onClick={handleCreateNewPlanner}
+            className="mt-4 bg-indigo-50 hover:bg-indigo-100 text-indigo-700 font-extrabold text-xs px-4 py-2 rounded-xl transition-all cursor-pointer shadow-xs"
+          >
+            Criar Minha Agenda de Estudos
+          </button>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          
+          {/* Active Planner Title Settings bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 bg-slate-50/50 p-3 rounded-2xl border border-slate-100">
+            <div className="flex items-center space-x-2 w-full max-w-md">
+              {isEditingTitle ? (
+                <div className="flex items-center space-x-1 w-full">
+                  <input
+                    type="text"
+                    value={editedTitle}
+                    onChange={(e) => setEditedTitle(e.target.value)}
+                    className="w-full bg-white border border-slate-200 text-xs font-bold text-slate-800 rounded-lg p-2 focus:ring-1 focus:ring-indigo-500 focus:outline-none"
+                    placeholder="Nome do planejamento"
+                    autoFocus
+                  />
                   <button
-                    type="button"
-                    onClick={handleAddEditorRow}
-                    className="text-indigo-600 hover:text-indigo-700 text-xs font-bold flex items-center space-x-1 cursor-pointer"
+                    onClick={handleSaveTitle}
+                    className="bg-emerald-600 text-white text-xs font-bold px-2.5 py-2 rounded-lg cursor-pointer hover:bg-emerald-700"
                   >
-                    <PlusCircle className="h-4 w-4" />
-                    <span>Adicionar Linha</span>
+                    Salvar
+                  </button>
+                  <button
+                    onClick={() => {
+                      setIsEditingTitle(false);
+                      if (activePlanner) setEditedTitle(activePlanner.titulo);
+                    }}
+                    className="bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-2 rounded-lg cursor-pointer"
+                  >
+                    Cancelar
                   </button>
                 </div>
+              ) : (
+                <div className="flex items-center space-x-2">
+                  <span className="text-sm font-extrabold text-slate-850">
+                    📂 {activePlanner?.titulo}
+                  </span>
+                  <button
+                    onClick={() => {
+                      if (activePlanner) {
+                        setEditedTitle(activePlanner.titulo);
+                        setIsEditingTitle(true);
+                      }
+                    }}
+                    className="text-slate-400 hover:text-indigo-600 transition-colors p-1"
+                    title="Editar título da grade"
+                  >
+                    <Edit3 className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+              )}
+            </div>
 
-                <div className="space-y-3.5 max-h-[350px] overflow-y-auto pr-1">
-                  {(editingPlanner.linhas || []).length === 0 ? (
-                    <div className="text-center py-6 bg-slate-50 rounded-xl text-xs text-slate-400 italic">
-                      Nenhuma matéria listada. Adicione uma linha acima.
-                    </div>
-                  ) : (
-                    (editingPlanner.linhas || []).map((row, index) => (
-                      <div 
-                        key={row.id} 
-                        className="bg-slate-50/75 border border-slate-100 rounded-2xl p-3.5 flex flex-col md:flex-row items-stretch md:items-start gap-3 relative md:pr-10"
-                      >
-                        {/* Selector or Label */}
-                        <div className="w-full md:w-2/5 space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase">Matéria</label>
-                          <select
-                            value={row.materiaId}
-                            onChange={(e) => handleRowFieldChange(row.id, 'materiaId', e.target.value)}
-                            className="w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-semibold text-slate-700/90 focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer"
+            <div className="flex items-center gap-1.5 self-end sm:self-auto">
+              <span className="text-[11px] font-bold text-slate-400 italic">
+                {(activePlanner?.itens || []).length} itens planejados
+              </span>
+              <button
+                onClick={handleDeleteTrigger}
+                className="text-slate-400 hover:text-rose-600 p-1.5 hover:bg-rose-50 rounded-lg transition-colors cursor-pointer text-xs flex items-center space-x-1"
+                title="Excluir esta grade"
+              >
+                <Trash2 className="h-3.5 w-3.5" />
+                <span className="hidden sm:inline">Excluir Grade</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Validation Notice for Subjects */}
+          {subjects.length === 0 && (
+            <div className="bg-amber-50 border border-amber-100 rounded-2xl p-4 flex items-start space-x-2.5 text-xs text-amber-850">
+              <AlertCircle className="h-4.5 w-4.5 text-amber-600 shrink-0 mt-0.5" />
+              <div>
+                <span className="font-bold">Nenhuma matéria ou conteúdo cadastrado: </span>
+                Para adicionar metas ao cronograma, você precisa primeiro registrar suas disciplinas e tópicos de estudo na aba <span className="font-bold">&ldquo;Matérias / Conteúdos&rdquo;</span>.
+              </div>
+            </div>
+          )}
+
+          {/* The Week Calendar Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-7 gap-3.5 items-start">
+            {DIAS_SEMANA.map((dia) => {
+              const dayTheme = getDayTheme(dia);
+              const items = plannerByDay[dia];
+              const isAdding = addingState[dia] !== null && addingState[dia] !== undefined;
+
+              return (
+                <div 
+                  key={dia} 
+                  className={`border rounded-2xl p-3.5 flex flex-col min-h-[220px] transition-all ${dayTheme.bg} hover:shadow-xs`}
+                >
+                  {/* Day Header */}
+                  <div className="flex items-center justify-between pb-2 mb-2.5 border-b border-slate-100">
+                    <span className="text-xs font-black uppercase text-slate-800 tracking-wider">
+                      {dia}
+                    </span>
+                    <span className={`text-[10px] font-extrabold px-1.5 py-0.5 rounded-md ${dayTheme.badge}`}>
+                      {items.length} {items.length === 1 ? 'meta' : 'metas'}
+                    </span>
+                  </div>
+
+                  {/* Planned items in this weekday */}
+                  <div className="space-y-2.5 flex-1 mb-3">
+                    {items.length === 0 ? (
+                      <div className="h-full flex flex-col items-center justify-center py-5 text-center text-[10.5px] text-slate-400 italic font-mono border border-dashed border-slate-200/70 rounded-xl bg-white/20">
+                        Livre
+                      </div>
+                    ) : (
+                      items.map((it) => {
+                        const subjectDetail = subjects.find(s => s.id === it.materiaId);
+                        const contentDetail = contents.find(c => c.id === it.conteudoId);
+
+                        return (
+                          <div 
+                            key={it.id} 
+                            className={`group relative bg-white border border-slate-150 rounded-xl p-2.5 shadow-2xs hover:border-slate-305 transition-all flex items-start space-x-2 ${
+                              it.concluido ? 'opacity-55' : ''
+                            }`}
                           >
-                            <option value="extra">Complementares / Extra</option>
+                            {/* Toggle Checkbox Button */}
+                            <button
+                              onClick={() => handleToggleItemCheckbox(it)}
+                              className="shrink-0 mt-0.5 focus:outline-none cursor-pointer text-slate-400 hover:text-indigo-600 transition-colors"
+                              title={it.concluido ? "Desmarcar estudo" : "Marcar como estudado e gerar log"}
+                            >
+                              {it.concluido ? (
+                                <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600 fill-emerald-50" />
+                              ) : (
+                                <Circle className="h-4.5 w-4.5 text-slate-300 hover:text-indigo-505" />
+                              )}
+                            </button>
+
+                            {/* Card Details */}
+                            <div className="flex-1 min-w-0 pr-5">
+                              {/* Subject Badge */}
+                              {subjectDetail && (
+                                <span 
+                                  className="inline-block text-[9px] font-extrabold px-1.5 py-0.5 rounded-md text-white shadow-2xs leading-none mb-1.5 truncate max-w-full"
+                                  style={{ backgroundColor: subjectDetail.cor }}
+                                >
+                                  {subjectDetail.nome}
+                                </span>
+                              )}
+
+                              {/* Content Title */}
+                              <p className={`text-[11.5px] font-semibold text-slate-700/90 leading-normal break-words ${
+                                it.concluido ? 'line-through text-slate-400 font-normal' : ''
+                              }`}>
+                                {contentDetail ? contentDetail.nome : '\u26a0\ufe0f Tópico Removido'}
+                              </p>
+
+                              {it.concluido && it.estudadoEm && (
+                                <span className="inline-flex items-center text-[9px] font-bold text-emerald-600 mt-1">
+                                  ✓ Estudado em {it.estudadoEm.split('-').reverse().slice(0, 2).join('/')}
+                                </span>
+                              )}
+                            </div>
+
+                            {/* Delete single planner item button */}
+                            <button
+                              onClick={() => handleRemovePlannerItem(it.id)}
+                              className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity text-slate-400 hover:text-rose-500 rounded p-0.5"
+                              title="Remover deste dia"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                        );
+                      })
+                    )}
+
+                    {/* Inline Form to Add a planned item */}
+                    {isAdding && (
+                      <div className="bg-slate-50 border border-slate-200 rounded-xl p-2.5 space-y-2.5 animate-fade-in shadow-xs">
+                        {/* Select Subject */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase text-slate-400">Disciplina</label>
+                          <select
+                            value={addingState[dia]?.subjectId || ''}
+                            onChange={(e) => handleAddingFieldChange(dia, 'subjectId', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-1 text-[11px] font-bold text-slate-700 focus:outline-none cursor-pointer"
+                          >
+                            <option value="">-- Selecionar --</option>
                             {subjects.map(s => (
                               <option key={s.id} value={s.id}>{s.nome}</option>
                             ))}
                           </select>
                         </div>
 
-                        {/* Contents description area */}
-                        <div className="w-full md:w-3/5 space-y-1">
-                          <label className="text-[10px] font-bold text-slate-400 uppercase">Assuntos a Estudar (estilo Notion/Lista)</label>
-                          <textarea
-                            placeholder="Ex: Potenciação, radiciação ou Ler apostila pág 12-25"
-                            value={row.conteudos}
-                            onChange={(e) => handleRowFieldChange(row.id, 'conteudos', e.target.value)}
-                            rows={2}
-                            className="w-full bg-white border border-slate-200 rounded-xl p-2 text-xs font-medium text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-600 placeholder-slate-350"
-                          />
+                        {/* Select Content of Subject */}
+                        <div className="space-y-1">
+                          <label className="text-[10px] font-black uppercase text-slate-400">Conteúdo do Sistema</label>
+                          <select
+                            value={addingState[dia]?.contentId || ''}
+                            onChange={(e) => handleAddingFieldChange(dia, 'contentId', e.target.value)}
+                            className="w-full bg-white border border-slate-200 rounded-lg p-1 text-[11px] font-medium text-slate-600 focus:outline-none cursor-pointer"
+                            disabled={!addingState[dia]?.subjectId}
+                          >
+                            <option value="">-- Selecionar --</option>
+                            {contents
+                              .filter(c => c.materiaId === addingState[dia]?.subjectId)
+                              .map(c => (
+                                <option key={c.id} value={c.id}>{c.nome}</option>
+                              ))
+                            }
+                            {contents.filter(c => c.materiaId === addingState[dia]?.subjectId).length === 0 && (
+                              <option disabled>Nenhum conteúdo nesta matéria</option>
+                            )}
+                          </select>
                         </div>
 
-                        {/* Delete single row */}
-                        <button
-                          type="button"
-                          onClick={() => handleRemoveEditorRow(row.id)}
-                          className="text-slate-400 hover:text-rose-500 p-1 bg-white hover:bg-rose-50 rounded-lg transition-colors border border-slate-100 md:border-0 md:bg-transparent md:absolute md:right-2 md:top-8 cursor-pointer self-end md:self-auto"
-                          title="Remover linha"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
+                        {/* Actions buttons */}
+                        <div className="flex justify-end space-x-1.5 pt-1">
+                          <button
+                            type="button"
+                            onClick={() => setAddingState(prev => ({ ...prev, [dia]: null }))}
+                            className="bg-slate-200/80 hover:bg-slate-250 text-slate-700 text-[10px] font-bold px-2 py-1 rounded"
+                          >
+                            Cancelar
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => handleAddPlannerItem(dia)}
+                            disabled={!addingState[dia]?.contentId}
+                            className={`text-[10px] font-bold px-2.5 py-1 rounded text-white cursor-pointer ${
+                              addingState[dia]?.contentId ? 'bg-indigo-600 hover:bg-indigo-700' : 'bg-slate-300'
+                            }`}
+                          >
+                            Adicionar
+                          </button>
+                        </div>
                       </div>
-                    ))
+                    )}
+                  </div>
+
+                  {/* Add action trigger */}
+                  {!isAdding && subjects.length > 0 && (
+                    <button
+                      onClick={() => handleOpenAddInline(dia)}
+                      className="w-full border border-dashed border-slate-250 hover:border-indigo-300 text-slate-400 hover:text-indigo-600 text-[10.5px] font-extrabold py-2 px-1 rounded-xl flex items-center justify-center space-x-1 hover:bg-white transition-all cursor-pointer mt-auto"
+                    >
+                      <Plus className="h-3 w-3" />
+                      <span>Adicionar</span>
+                    </button>
                   )}
                 </div>
-              </div>
-            </form>
-
-            {/* Footer */}
-            <div className="p-4 border-t border-slate-100 bg-slate-55 flex justify-end gap-2.5">
-              <button 
-                type="button"
-                onClick={() => setEditorOpen(false)}
-                className="bg-slate-100 hover:bg-slate-200 text-slate-800 text-xs font-bold py-2 px-4 rounded-xl cursor-pointer"
-              >
-                Cancelar
-              </button>
-              <button 
-                type="submit"
-                onClick={handleSavePlanner}
-                className="bg-indigo-650 hover:bg-indigo-700 text-white text-xs font-bold py-2 px-5 rounded-xl cursor-pointer"
-              >
-                Salvar Metas
-              </button>
-            </div>
-
+              );
+            })}
           </div>
+          
+          {/* Legend/Hint Footer block */}
+          <div className="bg-slate-50/50 rounded-2xl p-3.5 border border-slate-100 flex items-start space-x-2 shadow-inner">
+            <HelpCircle className="h-4.5 w-4.5 text-indigo-500 shrink-0 mt-0.5" />
+            <div className="text-[11px] text-slate-500 leading-relaxed font-sans">
+              <span className="font-bold text-indigo-600 uppercase tracking-wider text-[9.5px] block mb-0.5">Dica de Produtividade & Checklist Integrado</span>
+              Quando você clica na bolinha de checkbox de uma meta pendente, o sistema gera de forma transparente um log de estudos de <span className="font-bold text-slate-600">30 minutos</span> no seu histórico, altera o status do conteúdo no painel principal e agenda automaticamente todas as futuras datas do intervalo de repetições espaçadas! ⚡
+            </div>
+          </div>
+
         </div>
       )}
 
-      {/* Confirmation delete week modal */}
+      {/* Delete Confirmation Modal */}
       <ConfirmModal
         isOpen={confirmDeleteOpen}
-        title="Excluir Planejamento Semanal"
-        message={`Deseja realmente deletar a programação de "${deleteTitle}"? Esta ação removerá a tabela permanentemente.`}
+        title="Excluir Calendário"
+        message={`Deseja mesmo remover a grade "${deleteTitle}"? Todos os agendamentos desta semana serão apagados do planejador.`}
         onConfirm={handleConfirmDelete}
         onCancel={() => setConfirmDeleteOpen(false)}
         confirmText="Excluir"
-        cancelText="Cancelar"
+        cancelText="Voltar"
         danger={true}
       />
 

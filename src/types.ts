@@ -96,17 +96,20 @@ export interface ErrorEntry {
   createdAt: string;
 }
 
-export interface PlannerRow {
+export interface PlannerItem {
   id: string;
-  materiaId: string; // Subject ID inside system, or "extra" / custom
-  conteudos: string; // text list or notes of contents
+  diaSemana: "Segunda" | "Terça" | "Quarta" | "Quinta" | "Sexta" | "Sábado" | "Domingo";
+  materiaId: string;
+  conteudoId: string;
+  concluido: boolean;
+  estudadoEm?: string; // YYYY-MM-DD
 }
 
 export interface WeeklyPlanner {
   id: string;
   userId: string;
-  titulo: string; // E.g., "Semana 1: 27/05 a 02/06"
-  linhas: PlannerRow[];
+  titulo: string; // E.g., "Meta da Semana"
+  itens: PlannerItem[];
   createdAt: string;
 }
 

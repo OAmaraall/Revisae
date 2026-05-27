@@ -788,7 +788,7 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
               id: wp.id,
               userId: uid,
               titulo: wp.titulo,
-              linhas: Array.isArray(wp.linhas) ? wp.linhas : [],
+              itens: Array.isArray(wp.itens) ? wp.itens : [],
               createdAt: wp.createdAt || new Date().toISOString()
             });
           }
