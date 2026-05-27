@@ -32,6 +32,9 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
   const [customDays, setCustomDays] = useState(3);
   const [customLabel, setCustomLabel] = useState('Revisão Manual');
 
+  // Filter state for ReviewsTab list
+  const [filterMateriaId, setFilterMateriaId] = useState<string>('');
+
   const todayStr = new Date().toISOString().split('T')[0];
 
   // Sync quick study triggers for reviews
@@ -81,18 +84,30 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
 
   // 1. "Pendente e de Hoje" (dues where dataPrevista <= today)
   const reviewsToday = useMemo(() => {
-    return reviews.filter(r => r.status === 'Pendente' && r.dataPrevista <= todayStr);
-  }, [reviews, todayStr]);
+    let list = reviews.filter(r => r.status === 'Pendente' && r.dataPrevista <= todayStr);
+    if (filterMateriaId) {
+      list = list.filter(r => r.materiaId === filterMateriaId);
+    }
+    return list;
+  }, [reviews, todayStr, filterMateriaId]);
 
   // 2. "Todas as Pendentes"
   const allPendingReviews = useMemo(() => {
-    return reviews.filter(r => r.status === 'Pendente');
-  }, [reviews]);
+    let list = reviews.filter(r => r.status === 'Pendente');
+    if (filterMateriaId) {
+      list = list.filter(r => r.materiaId === filterMateriaId);
+    }
+    return list;
+  }, [reviews, filterMateriaId]);
 
   // 3. "Concluídas/Feitas"
   const completedReviews = useMemo(() => {
-    return reviews.filter(r => r.status === 'Feita');
-  }, [reviews]);
+    let list = reviews.filter(r => r.status === 'Feita');
+    if (filterMateriaId) {
+      list = list.filter(r => r.materiaId === filterMateriaId);
+    }
+    return list;
+  }, [reviews, filterMateriaId]);
 
   const activeReviewList = useMemo(() => {
     if (activeSubTab === 'today') return reviewsToday;
@@ -194,6 +209,38 @@ export const ReviewsTab: React.FC<ReviewsTabProps> = ({
         <span className="text-[10px] text-slate-400 font-mono font-bold uppercase tracking-wider">
           Hoje é: {todayStr}
         </span>
+      </div>
+
+      {/* Subject Filter Section */}
+      <div className="bg-slate-50 border border-slate-100/80 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <div className="flex items-center space-x-2">
+          <span className="text-xs font-bold text-slate-500 uppercase tracking-tight">Filtrar por Matéria:</span>
+          <select
+            value={filterMateriaId}
+            onChange={(e) => setFilterMateriaId(e.target.value)}
+            className="bg-white border border-slate-200 rounded-xl px-3 py-1.5 text-xs font-semibold text-slate-700 focus:outline-none focus:ring-1 focus:ring-indigo-600 cursor-pointer min-w-[180px]"
+          >
+            <option value="">Todas as Matérias</option>
+            {subjects.map(s => (
+              <option key={s.id} value={s.id}>{s.nome}</option>
+            ))}
+          </select>
+          {filterMateriaId && (
+            <button 
+              type="button"
+              onClick={() => setFilterMateriaId('')}
+              className="text-xs font-bold text-teal-600 hover:text-teal-700 cursor-pointer bg-teal-50 px-2 py-1 rounded-lg"
+            >
+              Limpar Filtro
+            </button>
+          )}
+        </div>
+        
+        {filterMateriaId && (
+          <div className="text-[11px] font-bold text-slate-400">
+            Mostrando apenas cards de <span className="text-slate-600 font-extrabold">&ldquo;{subjects.find(s => s.id === filterMateriaId)?.nome}&rdquo;</span>
+          </div>
+        )}
       </div>
 
       {/* Active Repetitions List */}

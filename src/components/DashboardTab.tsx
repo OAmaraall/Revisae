@@ -289,19 +289,10 @@ export const DashboardTab: React.FC<DashboardTabProps> = ({ onNavigateToTab, onS
                         <button 
                           onClick={() => onSelectQuickContent(scored.content.id, 'study')}
                           title="Registrar Estudo"
-                          className="bg-teal-50 hover:bg-teal-100 text-teal-700 text-xs font-bold p-2 rounded-xl flex items-center justify-center space-x-1 cursor-pointer transition-colors"
+                          className="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-2 rounded-xl flex items-center justify-center space-x-1.5 cursor-pointer transition-colors shadow-sm"
                         >
-                          <Play className="h-4 w-4" />
-                          <span className="hidden sm:inline">Estudar</span>
-                        </button>
-                        
-                        <button 
-                          onClick={() => onSelectQuickContent(scored.content.id, 'review')}
-                          title="Criar Revisão Manual"
-                          className="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 text-xs font-bold p-2 rounded-xl flex items-center justify-center space-x-1 cursor-pointer transition-colors"
-                        >
-                          <Calendar className="h-4 w-4" />
-                          <span className="hidden sm:inline">Revisar</span>
+                          <Play className="h-4.5 w-4.5" />
+                          <span>Estudar</span>
                         </button>
                       </div>
 

@@ -352,6 +352,23 @@ export const DataProvider: React.FC<{ children: React.ReactNode }> = ({ children
         }
       }
 
+      // 4. Automatically complete any pending reviews for this content since the user just studied/revised it
+      const pendingReviewsForContent = reviews.filter(
+        r => r.conteudoId === session.conteudoId && r.status === "Pendente"
+      );
+      for (const r of pendingReviewsForContent) {
+        const revDocRef = doc(db, "users", user.uid, "reviews", r.id);
+        const mappedPerf: ReviewPerformance = 
+          session.dificuldadePercebida === "Fácil" ? "Bom" :
+          session.dificuldadePercebida === "Médio" ? "Médio" : "Ruim";
+        
+        batch.update(revDocRef, {
+          status: "Feita" as ReviewStatus,
+          dataFeita: session.data,
+          desempenho: mappedPerf
+        });
+      }
+
       await batch.commit();
     } catch (e) {
       handleFirestoreError(e, OperationType.CREATE, path);
