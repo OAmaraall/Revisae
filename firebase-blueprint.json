@@ -1,0 +1,135 @@
+{
+  "entities": {
+    "subject": {
+      "title": "Subject",
+      "description": "Subject studied by the student",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "nome": { "type": "string" },
+        "peso": { "type": "integer" },
+        "prioridade": { "type": "string", "enum": ["Alta", "Média", "Baixa"] },
+        "cor": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "nome", "peso", "prioridade", "cor", "createdAt", "updatedAt"]
+    },
+    "content": {
+      "title": "Content",
+      "description": "Topic or content within a subject",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "materiaId": { "type": "string" },
+        "nome": { "type": "string" },
+        "bloco": { "type": "string" },
+        "status": { "type": "string", "enum": ["Não iniciado", "Resumo lido", "Aula vista", "Questões feitas", "Em revisão", "Dominado"] },
+        "dificuldade": { "type": "string", "enum": ["Fácil", "Médio", "Difícil"] },
+        "prioridade": { "type": "string", "enum": ["Alta", "Média", "Baixa"] },
+        "dataLimite": { "type": "string" },
+        "observacoes": { "type": "string" },
+        "createdAt": { "type": "string" },
+        "updatedAt": { "type": "string" }
+      },
+      "required": ["userId", "materiaId", "nome", "bloco", "status", "dificuldade", "prioridade", "dataLimite", "createdAt", "updatedAt"]
+    },
+    "study": {
+      "title": "StudySession",
+      "description": "Record of a study session",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "data": { "type": "string" },
+        "materiaId": { "type": "string" },
+        "conteudoId": { "type": "string" },
+        "metodo": { "type": "string", "enum": ["Questão antes da aula", "Aula/resumo", "Questões depois da aula", "Revisão curta", "Revisão profunda", "Caderno de erros"] },
+        "minutosEstudados": { "type": "integer" },
+        "questoesFeitas": { "type": "integer" },
+        "acertos": { "type": "integer" },
+        "dificuldadePercebida": { "type": "string", "enum": ["Fácil", "Médio", "Difícil"] },
+        "observacao": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "data", "materiaId", "conteudoId", "metodo", "minutosEstudados", "questoesFeitas", "acertos", "dificuldadePercebida", "createdAt"]
+    },
+    "review": {
+      "title": "Review",
+      "description": "Spaced repetition review entry",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "conteudoId": { "type": "string" },
+        "materiaId": { "type": "string" },
+        "dataPrevista": { "type": "string" },
+        "tipoRevisao": { "type": "string" },
+        "status": { "type": "string", "enum": ["Pendente", "Feita", "Atrasada"] },
+        "desempenho": { "type": "string", "enum": ["Ruim", "Médio", "Bom"] },
+        "dataFeita": { "type": "string" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "conteudoId", "materiaId", "dataPrevista", "tipoRevisao", "status", "createdAt"]
+    },
+    "question": {
+      "title": "QuestionSession",
+      "description": "List of questions practiced, with automatic score calculation",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "data": { "type": "string" },
+        "materiaId": { "type": "string" },
+        "conteudoId": { "type": "string" },
+        "fonte": { "type": "string" },
+        "totalQuestoes": { "type": "integer" },
+        "acertos": { "type": "integer" },
+        "erros": { "type": "integer" },
+        "taxaAcerto": { "type": "number" },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "data", "materiaId", "conteudoId", "fonte", "totalQuestoes", "acertos", "erros", "taxaAcerto", "createdAt"]
+    },
+    "error": {
+      "title": "ErrorEntry",
+      "description": "Caderno de erros entry tracking mistake concept and mitigation",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "data": { "type": "string" },
+        "materiaId": { "type": "string" },
+        "conteudoId": { "type": "string" },
+        "descricaoErro": { "type": "string" },
+        "explicacaoCorreta": { "type": "string" },
+        "comoEvitar": { "type": "string" },
+        "status": { "type": "string", "enum": ["aberto", "revisado", "resolvido"] },
+        "createdAt": { "type": "string" }
+      },
+      "required": ["userId", "data", "materiaId", "conteudoId", "descricaoErro", "explicacaoCorreta", "comoEvitar", "status", "createdAt"]
+    }
+  },
+  "firestore": {
+    "/subjects/{subjectId}": {
+      "schema": "subject",
+      "description": "Subjects of study"
+    },
+    "/contents/{contentId}": {
+      "schema": "content",
+      "description": "Contents within subjects"
+    },
+    "/studies/{studyId}": {
+      "schema": "study",
+      "description": "Study sessions"
+    },
+    "/reviews/{reviewId}": {
+      "schema": "review",
+      "description": "Spaced reviews scheduled"
+    },
+    "/questions/{questionId}": {
+      "schema": "question",
+      "description": "List of question sessions"
+    },
+    "/errors/{errorId}": {
+      "schema": "error",
+      "description": "Caderno de erros entries"
+    }
+  }
+}

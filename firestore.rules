@@ -1,0 +1,150 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // 1. Global Safety Net
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Reuseable global helpers
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isServerTimestamp(ts) {
+      return ts is string; // In our client app we will use ISO string timestamps for robust offline/online consistency or compatibility
+    }
+
+    // 2. Validation Blueprints (helpers)
+    function isValidSubject(data) {
+      return isOwner(data.userId)
+        && data.nome is string && data.nome.size() >= 1 && data.nome.size() <= 100
+        && data.peso is int && data.peso >= 1 && data.peso <= 10
+        && data.prioridade is string && (data.prioridade == 'Alta' || data.prioridade == 'Média' || data.prioridade == 'Baixa')
+        && data.cor is string && data.cor.size() <= 20
+        && data.createdAt is string
+        && data.updatedAt is string;
+    }
+
+    function isValidContent(data) {
+      return isOwner(data.userId)
+        && data.materiaId is string && data.materiaId.size() <= 128
+        && data.nome is string && data.nome.size() >= 1 && data.nome.size() <= 150
+        && data.bloco is string && data.bloco.size() <= 100
+        && data.status is string && (data.status == 'Não iniciado' || data.status == 'Resumo lido' || data.status == 'Aula vista' || data.status == 'Questões feitas' || data.status == 'Em revisão' || data.status == 'Dominado')
+        && data.dificuldade is string && (data.dificuldade == 'Fácil' || data.dificuldade == 'Médio' || data.dificuldade == 'Difícil')
+        && data.prioridade is string && (data.prioridade == 'Alta' || data.prioridade == 'Média' || data.prioridade == 'Baixa')
+        && data.dataLimite is string && data.dataLimite.size() <= 30
+        && data.createdAt is string
+        && data.updatedAt is string;
+    }
+
+    function isValidStudy(data) {
+      return isOwner(data.userId)
+        && data.materiaId is string && data.materiaId.size() <= 128
+        && data.conteudoId is string && data.conteudoId.size() <= 128
+        && data.data is string && data.data.size() <= 30
+        && data.metodo is string && (data.metodo == 'Questão antes da aula' || data.metodo == 'Aula/resumo' || data.metodo == 'Questões depois da aula' || data.metodo == 'Revisão curta' || data.metodo == 'Revisão profunda' || data.metodo == 'Caderno de erros')
+        && data.minutosEstudados is int && data.minutosEstudados >= 0
+        && data.questoesFeitas is int && data.questoesFeitas >= 0
+        && data.acertos is int && data.acertos >= 0
+        && data.dificuldadePercebida is string && (data.dificuldadePercebida == 'Fácil' || data.dificuldadePercebida == 'Médio' || data.dificuldadePercebida == 'Difícil')
+        && data.createdAt is string;
+    }
+
+    function isValidReview(data) {
+      return isOwner(data.userId)
+        && data.conteudoId is string && data.conteudoId.size() <= 128
+        && data.materiaId is string && data.materiaId.size() <= 128
+        // Allow dataPrevista, status, tipoRevisao, etc.
+        && data.dataPrevista is string && data.dataPrevista.size() <= 30
+        && data.tipoRevisao is string && data.tipoRevisao.size() <= 15
+        && data.status is string && (data.status == 'Pendente' || data.status == 'Feita' || data.status == 'Atrasada')
+        && data.createdAt is string;
+    }
+
+    function isValidQuestion(data) {
+      return isOwner(data.userId)
+        && data.data is string && data.data.size() <= 30
+        && data.materiaId is string && data.materiaId.size() <= 128
+        && data.conteudoId is string && data.conteudoId.size() <= 128
+        && data.fonte is string && data.fonte.size() <= 100
+        && data.totalQuestoes is int && data.totalQuestoes >= 0
+        && data.acertos is int && data.acertos >= 0
+        && data.erros is int && data.erros >= 0
+        && (data.taxaAcerto is float || data.taxaAcerto is int)
+        && data.createdAt is string;
+    }
+
+    function isValidError(data) {
+      return isOwner(data.userId)
+        && data.data is string && data.data.size() <= 30
+        && data.materiaId is string && data.materiaId.size() <= 128
+        && data.conteudoId is string && data.conteudoId.size() <= 128
+        && data.descricaoErro is string && data.descricaoErro.size() <= 1000
+        && data.explicacaoCorreta is string && data.explicacaoCorreta.size() <= 1000
+        && data.comoEvitar is string && data.comoEvitar.size() <= 1000
+        && data.status is string && (data.status == 'aberto' || data.status == 'revisado' || data.status == 'resolvido')
+        && data.createdAt is string;
+    }
+
+    // 3. Collection Rules
+    
+    match /subjects/{subjectId} {
+      allow create: if isSignedIn() && isValidId(subjectId) && isValidSubject(request.resource.data);
+      allow get: if isSignedIn() && isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.userId) && isValidSubject(request.resource.data) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /contents/{contentId} {
+      allow create: if isSignedIn() && isValidId(contentId) && isValidContent(request.resource.data);
+      allow get: if isSignedIn() && isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.userId) && isValidContent(request.resource.data) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /studies/{studyId} {
+      allow create: if isSignedIn() && isValidId(studyId) && isValidStudy(request.resource.data);
+      allow get: if isSignedIn() && isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.userId) && isValidStudy(request.resource.data) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /reviews/{reviewId} {
+      allow create: if isSignedIn() && isValidId(reviewId) && isValidReview(request.resource.data);
+      allow get: if isSignedIn() && isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.userId) && isValidReview(request.resource.data) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /questions/{questionId} {
+      allow create: if isSignedIn() && isValidId(questionId) && isValidQuestion(request.resource.data);
+      allow get: if isSignedIn() && isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.userId) && isValidQuestion(request.resource.data) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+
+    match /errors/{errorId} {
+      allow create: if isSignedIn() && isValidId(errorId) && isValidError(request.resource.data);
+      allow get: if isSignedIn() && isOwner(resource.data.userId);
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && isOwner(resource.data.userId) && isValidError(request.resource.data) && request.resource.data.userId == resource.data.userId;
+      allow delete: if isSignedIn() && isOwner(resource.data.userId);
+    }
+  }
+}

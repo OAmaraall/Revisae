@@ -1,0 +1,8 @@
+{
+  "name": "Revisae",
+  "description": "Gerenciador de revisão espaçada de materiais e edital com caderno de erros para aprovação em Medicina.",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}
